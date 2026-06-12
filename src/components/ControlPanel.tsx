@@ -203,6 +203,19 @@ export function ControlPanel({
   return (
     <div className="flex flex-col gap-3 h-full overflow-y-auto pr-1 pb-2">
 
+      {/* 生成ボタン（最上部） */}
+      <div className="space-y-2 pt-1">
+        <button onClick={onGenerate}
+          className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
+          生成
+        </button>
+        {hasResult && (
+          <button onClick={onExport}
+            className="w-full bg-stone-700 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-2xl transition-colors text-sm">
+            PNG で保存 📥
+          </button>
+        )}
+      </div>
       {/* シーン選択 */}
       <div className={sc}>
         <div className={stc}>モード</div>
@@ -346,20 +359,6 @@ export function ControlPanel({
           {errors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
         </div>
       )}
-
-      {/* アクションボタン */}
-      <div className="space-y-2 pt-1 pb-4">
-        <button onClick={onGenerate}
-          className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
-          生成
-        </button>
-        {hasResult && (
-          <button onClick={onExport}
-            className="w-full bg-stone-700 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-2xl transition-colors text-sm">
-            PNG で保存 📥
-          </button>
-        )}
-      </div>
     </div>
   );
 }
