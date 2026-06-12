@@ -5,19 +5,16 @@ const kv = new Redis({
   token: process.env.KV_REST_API_TOKEN!,
 });
 
-export default async function handler(req: Request): Promise<Response> {
-  const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
-
-  if (req.method === 'POST') {
-    const count = await kv.incr('sekiji:generate_count');
-    return new Response(JSON.stringify({ count }), { headers });
-  }
-
-  if (req.method === 'GET') {
-    const count = (await kv.get<number>('sekiji:generate_count')) ?? 0;
-    return new Response(JSON.stringify({ count }), { headers });
-  }
-
-  return new Response('Method Not Allowed', { status: 405 });
+export async function GET(): Promise<Response> {
+  const count = (await kv.get<number>('sekiji:generate_count')) ?? 0;
+  return new Response(JSON.stringify({ count }), {
+    headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+  });
 }
 
+export async function POST(): Promise<Response> {
+  const count = await kv.incr('sekiji:generate_count');
+  return new Response(JSON.stringify({ count }), {
+    headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' },
+  });
+}
