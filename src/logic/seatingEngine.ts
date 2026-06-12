@@ -62,7 +62,7 @@ export function generateSeating(state: AppState): SeatingResult {
   const totalPeople = Object.values(counts).reduce((s, v) => s + (v as number), 0);
 
   // バリデーション
-  const errors = validateCounts(mode, counts as Record<string, number>, totalSeats);
+  const errors = validateCounts(mode, counts as unkown as Record<string, number>, totalSeats);
   if (errors.length > 0) {
     const tables = tableRawSeats.map((raw, ti) => {
       const scored = calcScores(raw, door, front, mode);
