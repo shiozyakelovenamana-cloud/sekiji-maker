@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useAppState } from './hooks/useAppState';
 import { generateSeating } from './logic/seatingEngine';
 import { ControlPanel } from './components/ControlPanel';
@@ -19,13 +19,25 @@ export default function App() {
     return !localStorage.getItem('sekiji_disclaimer_accepted');
   });
   const svgRef = useRef<SVGSVGElement>(null);
-
+  const [generateCount, setGenerateCount] = useState<number | null>(null);
+  useEffect(() => {
+    fetch('/api/count')
+      .then(r => r.json())
+      .then(d => setGenerateCount(d.count))
+      .catch(() => {});
+  }, []);
+// 変更後
   const handleGenerate = useCallback(() => {
     const r = generateSeating(state);
     setResult(r);
     setErrors(r.errors);
-    // 生成成功したら結果タブへ自動切替
-    if (r.errors.length === 0) setActiveTab('result');
+    if (r.errors.length === 0) {
+      setActiveTab('result');
+      fetch('/api/count', { method: 'POST' })
+        .then(res => res.json())
+        .then(d => setGenerateCount(d.count))
+        .catch(() => {});
+    }
   }, [state]);
 
   const handleExport = useCallback(async () => {
@@ -110,7 +122,7 @@ export default function App() {
             </div>
           )}
           <div className="flex-1 overflow-auto p-6">
-            <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={handleGenerate} />
+            <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={handleGenerate} generateCount={generateCount} />
           </div>
         </main>
       </div>
@@ -159,7 +171,7 @@ export default function App() {
         {/* 結果タブ */}
         {activeTab === 'result' && (
           <div className="flex-1 overflow-auto bg-white p-4">
-            <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={() => { handleGenerate(); }} />
+            <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={() => { handleGenerate(); }} generateCount={generateCount} />
           </div>
         )}
       </div>
@@ -170,11 +182,12 @@ export default function App() {
 // ============================================================
 // 結果エリア（デスクトップ・スマホ共通）
 // ============================================================
-function ResultArea({ result, state, svgRef, onGenerate }: {
+function ResultArea({ result, state, svgRef, onGenerate, generateCount }: {
   result: SeatingResult | null;
   state: any;
   svgRef: React.RefObject<SVGSVGElement>;
   onGenerate: () => void;
+  generateCount: number | null;
 }) {
   if (!result) {
     return (
@@ -216,6 +229,15 @@ function ResultArea({ result, state, svgRef, onGenerate }: {
           height={500}
         />
       </div>
+      {generateCount !== null && (
+        <p className="text-center text-xs text-stone-400 mt-1">
+          🪑 これまでに{' '}
+          <span className="font-bold text-amber-500">
+            {generateCount.toLocaleString()}
+          </span>{' '}
+          回、席次が作られました
+        </p>
+      )}
     </div>
   );
 }
