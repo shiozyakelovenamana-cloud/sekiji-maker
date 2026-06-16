@@ -1,26 +1,29 @@
+import React from 'react';
 import {
   AppState, Mode, LayoutConfig, VenueConfig, EventInfo, Direction,
   MeetingCounts, BanquetCounts, HospitalityCounts, CustomCounts,
-  MODE_LABEL, LAYOUT_LABEL, SCORE_WEIGHTS,
+  MODE_LABEL, LAYOUT_LABEL,
 } from '../types';
 
 interface Props {
   state: AppState; onMode: (m: Mode) => void; onLayout: (l: LayoutConfig) => void;
-  onCount: (role: string, v: number) => void; onVenue: (v: VenueConfig) => void;
+  onCount: (role: string, v: number | boolean) => void; onVenue: (v: VenueConfig) => void;
   onEvent: (e: EventInfo) => void; onDebug: (key: keyof AppState, v: boolean) => void;
-  onGenerate: () => void; onExport: () => void; errors: string[]; hasResult: boolean;
+  onGenerate: () => void; onExport: () => void; onNames: (names: string[]) => void;
+  errors: string[]; hasResult: boolean;
 }
 
-// スタイル定数
 const ic  = "w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-stone-700";
 const lc  = "block text-xs font-semibold text-stone-400 uppercase tracking-wider mb-1.5";
 const sc  = "bg-white rounded-2xl border border-stone-100 shadow-sm p-4 space-y-3";
 const stc = "text-sm font-bold text-stone-700 border-b border-stone-100 pb-2 mb-3 flex items-center gap-1.5";
 
 const MODE_ICON: Record<Mode, string> = { meeting: '🏢', banquet: '🍽️', hospitality: '🤝', custom: '✏️' };
-const MODE_DESC: Record<Mode, string> = { meeting: '会議・打ち合わせ', banquet: '宴会・懇親会', hospitality: '接待・おもてなし', custom: 'カスタムアレンジ' };
+const MODE_DESC: Record<Mode, string> = {
+  meeting: '会議・打ち合わせ', banquet: '宴会・懇親会',
+  hospitality: '接待・おもてなし', custom: '名前で席を決める',
+};
 
-// 数値入力
 function Num({ label, value, min = 0, max = 999, onChange }: {
   label: string; value: number; min?: number; max?: number; onChange: (v: number) => void;
 }) {
@@ -40,7 +43,6 @@ function Num({ label, value, min = 0, max = 999, onChange }: {
   );
 }
 
-// 方向ボタン
 function DirButtons({ label, value, onChange, disabled }: {
   label: string; value: Direction; onChange: (d: Direction) => void; disabled?: boolean;
 }) {
@@ -64,7 +66,6 @@ function DirButtons({ label, value, onChange, disabled }: {
   );
 }
 
-// レイアウト詳細設定
 function LayoutConfigEditor({ state, onChange }: { state: AppState; onChange: (l: LayoutConfig) => void }) {
   const { layout } = state;
   function up(p: Partial<any>) { onChange({ ...layout, config: { ...layout.config, ...p } } as LayoutConfig); }
@@ -155,19 +156,20 @@ function LayoutConfigEditor({ state, onChange }: { state: AppState; onChange: (l
 
 export function ControlPanel({
   state, onMode, onLayout, onCount, onVenue, onEvent, onDebug,
-  onGenerate, onExport, errors, hasResult,
+  onGenerate, onExport, onNames, errors, hasResult,
 }: Props) {
   const { mode, layout, counts, venue, eventInfo } = state;
- const cc = counts as CustomCounts;
-const total = mode === 'custom'
-  ? cc.names.filter(n => n.trim()).length
-  : Object.values(counts).filter(v => typeof v === 'number').reduce((s, v) => s + (v as number), 0);
-  const isSingle = ['ushaped','oshaped','counter','japanese','taxi','elevator','western'].includes(layout.type);
+  const cc = counts as CustomCounts;
   const mc = counts as MeetingCounts;
   const bc = counts as BanquetCounts;
   const hc = counts as HospitalityCounts;
 
-  // 必要最低卓数
+  const total = mode === 'custom'
+    ? cc.names.filter(n => n.trim()).length
+    : Object.values(counts).filter(v => typeof v === 'number').reduce((s, v) => s + (v as number), 0);
+
+  const isSingle = ['ushaped','oshaped','counter','japanese','taxi','elevator','western'].includes(layout.type);
+
   function seatsPerTable(): number {
     switch (layout.type) {
       case 'rectangle': case 'western': return layout.config.topSeats + layout.config.bottomSeats;
@@ -179,12 +181,17 @@ const total = mode === 'custom'
     }
   }
   const spt = seatsPerTable();
-  const minTables = spt > 0 && mode !== 'hospitality' && !isSingle ? Math.ceil(total / spt) : 0;
+  const minTables = spt > 0 && mode !== 'hospitality' && mode !== 'custom' && !isSingle ? Math.ceil(total / spt) : 0;
 
   const meetingLayouts = ['rectangle', 'round', 'desk', 'ushaped', 'oshaped'] as const;
   const banquetLayouts = ['round', 'rectangle'] as const;
-  const hospLayouts = ['western', 'round', 'rectangle', 'counter', 'japanese', 'taxi', 'elevator'] as const;
-  const layouts: readonly string[] = mode === 'meeting' ? meetingLayouts : mode === 'banquet' ? banquetLayouts : hospLayouts;
+  const hospLayouts    = ['western', 'round', 'rectangle', 'counter', 'japanese', 'taxi', 'elevator'] as const;
+  const customLayouts  = ['rectangle', 'round', 'desk', 'ushaped', 'oshaped', 'western', 'counter', 'japanese', 'taxi', 'elevator'] as const;
+  const layouts: readonly string[] =
+    mode === 'meeting' ? meetingLayouts :
+    mode === 'banquet' ? banquetLayouts :
+    mode === 'custom'  ? customLayouts :
+    hospLayouts;
 
   function selectLayout(type: string) {
     const map: Record<string, LayoutConfig> = {
@@ -203,24 +210,9 @@ const total = mode === 'custom'
   }
 
   return (
-{/* アクションボタン */}
-      <div className="space-y-2 pt-1 pb-4">
-        <button onClick={onGenerate}
-          className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
-          生成
-        </button>
-        {hasResult && (
-          <button onClick={onExport}
-            className="w-full bg-stone-700 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-2xl transition-colors text-sm">
-            PNG で保存 📥
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-      </div>
-      {/* シーン選択 */}
+    <div className="flex flex-col gap-3 h-full overflow-y-auto pr-1 pb-2">
+
+      {/* モード */}
       <div className={sc}>
         <div className={stc}>モード</div>
         <div className="grid grid-cols-2 gap-2">
@@ -235,8 +227,62 @@ const total = mode === 'custom'
             </button>
           ))}
         </div>
-        {mode && (
-          <p className="text-xs text-stone-400 text-center">{MODE_DESC[mode]}</p>
+        <p className="text-xs text-stone-400 text-center">{MODE_DESC[mode]}</p>
+      </div>
+
+      {/* 参加人数 */}
+      <div className={sc}>
+        <div className={stc}>
+          参加人数
+          <span className="font-normal text-stone-400 ml-auto text-xs">計 {total}名</span>
+          {minTables > 0 && <span className="font-normal text-amber-500 text-xs">· 最低{minTables}卓</span>}
+        </div>
+
+        {mode === 'meeting' && <>
+          <Num label="議長" value={mc.chairperson} min={0} max={1} onChange={v => onCount('chairperson', v)} />
+          <Num label="議事録係" value={mc.secretary} onChange={v => onCount('secretary', v)} />
+          <Num label="タイムキーパー" value={mc.timekeeper} onChange={v => onCount('timekeeper', v)} />
+          <Num label="上席" value={mc.senior} onChange={v => onCount('senior', v)} />
+          <Num label="一般" value={mc.general} onChange={v => onCount('general', v)} />
+        </>}
+
+        {mode === 'banquet' && <>
+          <Num label="主賓" value={bc.guest_of_honor} onChange={v => onCount('guest_of_honor', v)} />
+          <Num label="上席" value={bc.senior} onChange={v => onCount('senior', v)} />
+          <Num label="盛り上げ役" value={bc.entertainer} onChange={v => onCount('entertainer', v)} />
+          <Num label="初参加" value={bc.newcomer} onChange={v => onCount('newcomer', v)} />
+          <Num label="一般" value={bc.general} onChange={v => onCount('general', v)} />
+          <Num label="幹事" value={bc.organizer} onChange={v => onCount('organizer', v)} />
+          <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+            <input type="checkbox"
+              checked={bc.hasFocalPoint ?? true}
+              onChange={e => onCount('hasFocalPoint', e.target.checked)}
+              className="w-4 h-4 rounded accent-amber-500" />
+            正面（ステージ・スクリーン）あり
+          </label>
+        </>}
+
+        {mode === 'hospitality' && <>
+          <Num label="来客" value={hc.client} max={10} onChange={v => onCount('client', v)} />
+          <Num label="同席上席" value={hc.senior} max={10} onChange={v => onCount('senior', v)} />
+          <Num label="一般" value={hc.general} max={10} onChange={v => onCount('general', v)} />
+          <p className={`text-xs ${total > 10 ? 'text-red-500 font-bold' : 'text-stone-400'}`}>
+            上限10名（現在 {total}名）
+          </p>
+        </>}
+
+        {mode === 'custom' && (
+          <div className="space-y-2">
+            <p className="text-xs text-stone-500">偉い人順に名前を入力してください（1人1行）</p>
+            <textarea
+              className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-stone-700 resize-none"
+              rows={6}
+              placeholder={"例：\n丸本社長\n田中部長\n取引先担当者"}
+              value={cc.names.join('\n')}
+              onChange={e => onNames(e.target.value.split('\n'))}
+            />
+            <p className="text-xs text-stone-400">{total}名入力中</p>
+          </div>
         )}
       </div>
 
@@ -259,45 +305,6 @@ const total = mode === 'custom'
         </div>
       </div>
 
-      {/* 人数 */}
-      <div className={sc}>
-        <div className={stc}>
-          参加人数
-          <span className="font-normal text-stone-400 ml-auto text-xs">計 {total}名</span>
-          {minTables > 0 && (
-            <span className="font-normal text-amber-500 text-xs">· 最低{minTables}卓</span>
-          )}
-        </div>
-        {mode === 'meeting' && <>
-          <Num label="議長" value={mc.chairperson} min={0} max={1} onChange={v => onCount('chairperson', v)} />
-          <Num label="議事録係" value={mc.secretary} onChange={v => onCount('secretary', v)} />
-          <Num label="タイムキーパー" value={mc.timekeeper} onChange={v => onCount('timekeeper', v)} />
-          <Num label="上席" value={mc.senior} onChange={v => onCount('senior', v)} />
-          <Num label="一般" value={mc.general} onChange={v => onCount('general', v)} />
-        </>}
-        {mode === 'banquet' && <>
-          <Num label="主賓" value={bc.guest_of_honor} onChange={v => onCount('guest_of_honor', v)} />
-          <Num label="上席" value={bc.senior} onChange={v => onCount('senior', v)} />
-          <Num label="盛り上げ役" value={bc.entertainer} onChange={v => onCount('entertainer', v)} />
-          <Num label="初参加" value={bc.newcomer} onChange={v => onCount('newcomer', v)} />
-          <Num label="一般" value={bc.general} onChange={v => onCount('general', v)} />
-          <Num label="幹事" <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
-  <input type="checkbox"
-    checked={bc.hasFocalPoint ?? true}
-    onChange={e => onCount('hasFocalPoint', e.target.checked ? 1 : 0)}
-    className="w-4 h-4 rounded accent-amber-500" />
-  正面（ステージ・スクリーン）あり
-</label>}
-        {mode === 'hospitality' && <>
-          <Num label="来客" value={hc.client} max={10} onChange={v => onCount('client', v)} />
-          <Num label="同席上席" value={hc.senior} max={10} onChange={v => onCount('senior', v)} />
-          <Num label="一般" value={hc.general} max={10} onChange={v => onCount('general', v)} />
-          <p className={`text-xs ${total > 10 ? 'text-red-500 font-bold' : 'text-stone-400'}`}>
-            上限10名（現在 {total}名）
-          </p>
-        </>}
-      </div>
-
       {/* 会場設定 */}
       <div className={sc}>
         <div className={stc}>会場設定</div>
@@ -312,17 +319,13 @@ const total = mode === 'custom'
         {layout.type !== 'japanese' && layout.type !== 'counter' && layout.type !== 'taxi' && (
           <DirButtons label="正面の方向" value={venue.front} onChange={d => onVenue({ ...venue, front: d })} />
         )}
-        {!isSingle && mode !== 'hospitality' && <>
+        {!isSingle && mode !== 'hospitality' && mode !== 'custom' && <>
           <Num label="総卓数" value={venue.tableCount} min={1} max={50} onChange={v => onVenue({ ...venue, tableCount: v })} />
           <Num label="1列あたり卓数" value={venue.tablesPerRow} min={1} max={venue.tableCount}
             onChange={v => onVenue({ ...venue, tablesPerRow: Math.min(v, venue.tableCount) })} />
         </>}
-        {layout.type === 'counter' && (
-          <p className="text-xs text-stone-400">カウンターは方向設定なし</p>
-        )}
-        {layout.type === 'taxi' && (
-          <p className="text-xs text-stone-400">タクシーは方向設定なし</p>
-        )}
+        {(layout.type === 'counter') && <p className="text-xs text-stone-400">カウンターは方向設定なし</p>}
+        {(layout.type === 'taxi') && <p className="text-xs text-stone-400">タクシーは方向設定なし</p>}
       </div>
 
       {/* イベント情報 */}
@@ -348,16 +351,12 @@ const total = mode === 'custom'
       {/* デバッグ */}
       <div className={sc}>
         <div className={stc}>デバッグ</div>
-        {[
-          { key: 'debugShowTableRank' as const, label: '卓番号を表示' },
-        ].map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer hover:text-stone-800 transition-colors">
-            <input type="checkbox" checked={state[key] as boolean}
-              onChange={e => onDebug(key, e.target.checked)}
-              className="w-4 h-4 rounded accent-amber-500" />
-            {label}
-          </label>
-        ))}
+        <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer hover:text-stone-800 transition-colors">
+          <input type="checkbox" checked={state.debugShowTableRank as boolean}
+            onChange={e => onDebug('debugShowTableRank', e.target.checked)}
+            className="w-4 h-4 rounded accent-amber-500" />
+          卓番号を表示
+        </label>
       </div>
 
       {/* エラー */}
@@ -367,6 +366,20 @@ const total = mode === 'custom'
           {errors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
         </div>
       )}
+
+      {/* アクションボタン（最下部） */}
+      <div className="space-y-2 pt-1 pb-4">
+        <button onClick={onGenerate}
+          className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
+          生成
+        </button>
+        {hasResult && (
+          <button onClick={onExport}
+            className="w-full bg-stone-700 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-2xl transition-colors text-sm">
+            PNG で保存 📥
+          </button>
+        )}
+      </div>
     </div>
   );
 }
