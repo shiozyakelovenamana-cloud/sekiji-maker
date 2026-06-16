@@ -77,11 +77,26 @@ export async function exportToPng(options: PngExportOptions, filename: string): 
   URL.revokeObjectURL(svgUrl);
 
   // PNG ダウンロード
-  const link = document.createElement('a');
-  link.download = filename;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+// 変更後
+  // PNG ダウンロード（スマホ対応）
+  canvas.toBlob(async (blob) => {
+    if (!blob) return;
+    const file = new File([blob], filename, { type: 'image/png' });
+    // iOS Safari等: navigator.share で共有シートを出す
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: filename });
+    } else {
+      // PC: 従来通りダウンロード
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  }, 'image/png');
 }
+
 
 export function buildFilename(title: string, date: string): string {
   const safeName = title.replace(/[^\w\u3000-\u9fff\u30a0-\u30ff\u3040-\u309f]/g, '_') || '席次表';
