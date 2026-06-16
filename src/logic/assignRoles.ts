@@ -112,8 +112,9 @@ export function assignMeeting(seats: ScoredPosition[], counts: MeetingCounts): A
 // 幹事 = finalScore 最低席に強制
 // ============================================================
 export function assignBanquet(
-  tableSeats: ScoredPosition[][], // 卓順位順（0=最上座卓）
+  tableSeats: ScoredPosition[][],
   counts: BanquetCounts,
+  hasFocalPoint: boolean,
 ): Assignment[][] {
   const tc = tableSeats.length;
   const placed: Map<string, { role: string; idx: number }>[] = tableSeats.map(() => new Map());
@@ -325,4 +326,23 @@ export function validateCounts(mode: Mode, counts: Record<string, number>, total
   if (mode === 'hospitality' && total > 10) errors.push(`接待モードの上限は10名です（現在 ${total}名）。`);
   if (mode === 'meeting' && (counts['chairperson'] ?? 0) > 1) errors.push('議長は最大1名です。');
   return errors;
+}
+
+// ============================================================
+// カスタムモード
+// 偉い人順（names[0]が最上座）にfinalScore降順の席へ割り当て
+// ============================================================
+export function assignCustom(seats: ScoredPosition[], names: string[]): Assignment[] {
+  const ordered = [...seats]
+    .filter(s => !s.isChairperson)
+    .sort((a, b) => b.finalScore - a.finalScore);
+
+  return seats.map(s => {
+    const rank = ordered.findIndex(o => o.id === s.id);
+    const name = rank >= 0 && rank < names.length ? names[rank] : null;
+    if (name) {
+      return { seatId: s.id, role: 'general' as Role, roleIndex: rank + 1, isEmpty: false, label: name };
+    }
+    return { seatId: s.id, role: null, roleIndex: 0, isEmpty: true, label: '' };
+  });
 }
