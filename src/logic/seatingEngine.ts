@@ -10,7 +10,7 @@
 
 import {
   AppState, SeatingResult, TableData, Seat, Mode,
-  MeetingCounts, BanquetCounts, HospitalityCounts,
+  MeetingCounts, BanquetCounts, HospitalityCounts, CustomCounts,
   LayoutConfig, Direction,
 } from '../types';
 
@@ -22,47 +22,37 @@ import {
 import { calcScores, ScoredPosition } from './scoreSeats';
 
 import {
-  assignMeeting, assignBanquet, assignHospitality,
+  assignMeeting, assignBanquet, assignHospitality, assignCustom,
   validateCounts, Assignment,
 } from './assignRoles';
 
 import { calcTableRanks } from './rankSeats';
 
-// ============================================================
-// メイン
-// ============================================================
 export function generateSeating(state: AppState): SeatingResult {
   const { mode, layout, counts, venue } = state;
 
-  // エレベーターは出入口=下固定
-  const door: Direction  = layout.type === 'elevator' ? 'bottom' : venue.door;
-  // 和室は床の間を正面として扱う
+  const door: Direction = layout.type === 'elevator' ? 'bottom' : venue.door;
   const front: Direction = layout.type === 'japanese'
     ? (layout.config as any).tokonoma
     : venue.front;
 
-  // 単一卓レイアウト
   const isSingle = ['ushaped','oshaped','counter','japanese','taxi','elevator','western'].includes(layout.type);
   const tableCount = isSingle ? 1 : Math.max(1, venue.tableCount);
   const tablesPerRow = Math.min(Math.max(1, venue.tablesPerRow), tableCount);
 
-  // 卓順位
   const tableRanks = calcTableRanks(tableCount, tablesPerRow, door);
   const rankMap = new Map(tableRanks.map(t => [t.index, t.tableRank]));
 
-  // 議長席の固定配置は廃止。スコア最高席に議長を配置。
-  const hasCh = false; // コの字・ロの字でも固定議長席なし
-
-  // 各卓の LayoutSeat を生成（IDに卓インデックスを付与）
   const tableRawSeats: LayoutSeat[][] = Array.from({ length: tableCount }, (_, ti) =>
-    getLayoutSeats(layout, hasCh).map(s => ({ ...s, id: `t${ti}_${s.id}` }))
+    getLayoutSeats(layout).map(s => ({ ...s, id: `t${ti}_${s.id}` }))
   );
 
   const totalSeats = tableRawSeats.reduce((s, t) => s + t.length, 0);
-  const totalPeople = Object.values(counts).reduce((s, v) => s + (v as number), 0);
+  const totalPeople = mode === 'custom'
+    ? (counts as CustomCounts).names.filter(n => n.trim()).length
+    : Object.values(counts).filter(v => typeof v === 'number').reduce((s, v) => s + (v as number), 0);
 
-  // バリデーション
-  const errors = validateCounts(mode, counts as unkown as Record<string, number>, totalSeats);
+  const errors = validateCounts(mode, counts as unknown as Record<string, number>, totalSeats);
   if (errors.length > 0) {
     const tables = tableRawSeats.map((raw, ti) => {
       const scored = calcScores(raw, door, front, mode);
@@ -71,19 +61,22 @@ export function generateSeating(state: AppState): SeatingResult {
     return { tables, totalSeats, totalPeople, errors };
   }
 
-  // スコア計算
   const isJapanese = layout.type === 'japanese';
   const isCounter  = layout.type === 'counter';
   const isTaxiElev = layout.type === 'taxi' || layout.type === 'elevator';
-  // 和室: 床の間を最優先 / カウンター: 大将(top方向)を最優先
-  const scoreWeights = isJapanese || isCounter ? { door: 0.05, front: 0.95 } : undefined;
-  // カウンターは大将がtop方向なので front=top 固定
+
+  const bc = counts as BanquetCounts;
+  const hasFocalPoint = mode === 'banquet' ? (bc.hasFocalPoint ?? true) : true;
+
+  const scoreWeights =
+    isJapanese || isCounter ? { door: 0.05, front: 0.95 } :
+    mode === 'banquet' && !hasFocalPoint ? { door: 1.0, front: 0.0 } :
+    undefined;
+
   const effectiveFront: Direction = isCounter ? 'top' : front;
 
   const tableScored: ScoredPosition[][] = tableRawSeats.map(raw => {
     const scored = calcScores(raw, door, effectiveFront, mode, scoreWeights);
-    // タクシー・エレベーターは固定順位を finalScore に直接反映
-    // ID の末尾数字（1〜4）が順位 → finalScore = 100 - (順位-1)*30
     if (isTaxiElev) {
       return scored.map(s => {
         const baseId = s.id.replace(/^t\d+_/, '');
@@ -95,21 +88,17 @@ export function generateSeating(state: AppState): SeatingResult {
     return scored;
   });
 
-  // 役職配置
   let assignedPerTable: Assignment[][];
+
   if (mode === 'meeting') {
     const mc = counts as MeetingCounts;
     if (tableCount === 1) {
       assignedPerTable = [assignMeeting(tableScored[0], mc)];
     } else {
-      // 長机複数: 卓順位で補正した合成スコアで全席を一本のリストにして一括配置
-      // 卓順位1=最上位卓に +1000 ボーナス、卓順位2に +666...と段階的に減衰
-      const totalTables = tableCount;
       const sorted = [...tableScored.entries()]
         .sort(([ai], [bi]) => (rankMap.get(ai) ?? ai) - (rankMap.get(bi) ?? bi));
-      // 卓順位ボーナス: 上位卓ほど大きい補正値を付与
-      const augmented = sorted.flatMap(([origIdx, seats], sortedRank) => {
-        const tableBonus = (totalTables - sortedRank) * 200; // 卓間を席スコア差より大きく
+      const augmented = sorted.flatMap(([, seats], sortedRank) => {
+        const tableBonus = (tableCount - sortedRank) * 200;
         return seats.map(s => ({ ...s, finalScore: s.finalScore + tableBonus }));
       });
       const allAssigned = assignMeeting(augmented, mc);
@@ -121,16 +110,18 @@ export function generateSeating(state: AppState): SeatingResult {
   } else if (mode === 'banquet') {
     const sorted = [...tableScored.entries()]
       .sort(([ai], [bi]) => (rankMap.get(ai) ?? ai) - (rankMap.get(bi) ?? bi));
-    const assigned = assignBanquet(sorted.map(([, s]) => s), counts as BanquetCounts);
+    const assigned = assignBanquet(sorted.map(([, s]) => s), counts as BanquetCounts, hasFocalPoint);
     assignedPerTable = new Array(tableCount);
     sorted.forEach(([origIdx], si) => { assignedPerTable[origIdx] = assigned[si]; });
+  } else if (mode === 'custom') {
+    const cc = counts as CustomCounts;
+    const customSeats = tableScored[0].filter(s => !s.isChairperson);
+    assignedPerTable = [assignCustom(customSeats, cc.names)];
   } else {
-    // 接待モード: isChairperson=true (大将席等) を除外してから役職配置
     const hospSeats = tableScored[0].filter(s => !s.isChairperson);
     assignedPerTable = [assignHospitality(hospSeats, counts as HospitalityCounts)];
   }
 
-  // TableData 合成 → 空席を下座へ押し出し
   const tables = tableScored.map((scored, ti) => {
     const td = toTableData(scored, assignedPerTable[ti] ?? [], ti, rankMap.get(ti) ?? ti + 1, layout.type);
     return { ...td, seats: pushEmptyToLow(td.seats) };
@@ -139,10 +130,7 @@ export function generateSeating(state: AppState): SeatingResult {
   return { tables, totalSeats, totalPeople, errors: [] };
 }
 
-// ============================================================
-// レイアウト別座標生成
-// ============================================================
-function getLayoutSeats(layout: LayoutConfig, hasCh: boolean): LayoutSeat[] {
+function getLayoutSeats(layout: LayoutConfig): LayoutSeat[] {
   switch (layout.type) {
     case 'rectangle':
     case 'western':   return posRectangle(layout.config);
@@ -158,9 +146,6 @@ function getLayoutSeats(layout: LayoutConfig, hasCh: boolean): LayoutSeat[] {
   }
 }
 
-// ============================================================
-// ScoredPosition + Assignment → TableData
-// ============================================================
 function toTableData(
   scored: ScoredPosition[],
   assigned: Assignment[],
@@ -172,7 +157,6 @@ function toTableData(
   const seats: Seat[] = scored.map(s => {
     const a = aMap.get(s.id);
     if (s.isChairperson) {
-      // カウンターの大将席（id に master_front を含む）は master ロール
       const isMaster = s.id.includes('master_front');
       return {
         id: s.id, lx: s.lx, ly: s.ly, side: s.side,
@@ -196,10 +180,6 @@ function toTableData(
   return { tableIndex: ti, tableRank, layoutType: layoutType as any, seats };
 }
 
-// ============================================================
-// 空席を下座（finalScore 低い方）へ寄せる
-// 同一辺・同一 ly グループ内で有人席を上座から詰める
-// ============================================================
 function pushEmptyToLow(seats: Seat[]): Seat[] {
   const groups = new Map<string, Seat[]>();
   for (const s of seats) {
@@ -216,8 +196,6 @@ function pushEmptyToLow(seats: Seat[]): Seat[] {
     if (group.length < 2) continue;
     const empties = group.filter(s => s.isEmpty).length;
     if (empties === 0 || empties === group.length) continue;
-
-    // finalScore 降順（高=上座）で並べ、有人を先に
     const byScore = [...group].sort((a, b) => b.finalScore - a.finalScore);
     const filled = byScore.filter(s => !s.isEmpty);
     const reordered: Pay[] = [
