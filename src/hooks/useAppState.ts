@@ -1,11 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AppState, Mode, LayoutConfig, RoleCounts, VenueConfig, EventInfo, MeetingCounts, BanquetCounts, HospitalityCounts } from '../types';
 import { saveState, loadState } from '../utils/storage';
+import { AppState, Mode, LayoutConfig, RoleCounts, VenueConfig, EventInfo, MeetingCounts, BanquetCounts, HospitalityCounts, CustomCounts } from '../types';
 
 const DEF_MEETING: MeetingCounts    = { chairperson: 1, secretary: 1, timekeeper: 1, senior: 3, general: 5 };
-const DEF_BANQUET: BanquetCounts    = { guest_of_honor: 1, senior: 2, entertainer: 1, newcomer: 2, general: 6, organizer: 1 };
+const DEF_BANQUET: BanquetCounts    = { guest_of_honor: 1, senior: 2, entertainer: 1, newcomer: 2, general: 6, organizer: 1, hasFocalPoint: true　};
 const DEF_HOSPITALITY: HospitalityCounts = { client: 3, senior: 2, general: 3 };
-
+const DEF_CUSTOM: CustomCounts = { names: ['', '', '', ''] };
 const DEFAULT: AppState = {
   mode: 'meeting',
   layout: { type: 'rectangle', config: { topSeats: 5, bottomSeats: 5 } },
@@ -14,12 +15,16 @@ const DEFAULT: AppState = {
   eventInfo: { title: '', date: new Date().toISOString().slice(0, 10), venue: '' },
   debugShowScore: false,
   debugShowTableRank: false,
-  schemaVersion: '1.0',
+  schemaVersion: '2.0',
 };
 
 function defaultCounts(mode: Mode): RoleCounts {
-  return mode === 'meeting' ? { ...DEF_MEETING } : mode === 'banquet' ? { ...DEF_BANQUET } : { ...DEF_HOSPITALITY };
+  return mode === 'meeting' ? { ...DEF_MEETING }
+    : mode === 'banquet' ? { ...DEF_BANQUET }
+    : mode === 'custom' ? { ...DEF_CUSTOM }
+    : { ...DEF_HOSPITALITY };
 }
+
 function defaultLayout(mode: Mode): LayoutConfig {
   if (mode === 'meeting')     return { type: 'rectangle', config: { topSeats: 5, bottomSeats: 5 } };
   if (mode === 'banquet')     return { type: 'round',     config: { seatCount: 8 } };
