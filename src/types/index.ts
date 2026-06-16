@@ -3,7 +3,7 @@
 // スコアベース設計
 // ============================================================
 
-export type Mode = 'meeting' | 'banquet' | 'hospitality';
+export type Mode = 'meeting' | 'banquet' | 'hospitality' | 'custom';
 
 // 出入口・正面の方向（画面基準）
 // 正面は画面上が「正面=top」のとき、正面は上側にある
@@ -11,9 +11,10 @@ export type Direction = 'top' | 'bottom' | 'left' | 'right';
 
 // モード別スコア重み
 export const SCORE_WEIGHTS: Record<Mode, { door: number; front: number }> = {
-  meeting:     { door: 0.6, front: 0.4 }, // ビジネス重視
-  banquet:     { door: 0.5, front: 0.5 }, // バランス
-  hospitality: { door: 0.3, front: 0.7 }, // フォーマル重視
+  meeting:     { door: 0.6, front: 0.4 },
+  banquet:     { door: 0.5, front: 0.5 },
+  hospitality: { door: 0.3, front: 0.7 },
+  custom:      { door: 0.6, front: 0.4 },
 };
 
 // ============================================================
@@ -74,6 +75,7 @@ export interface BanquetCounts {
   newcomer: number;
   general: number;
   organizer: number;
+  hasFocalPoint: boolean; // ①正面（ステージ）有無
 }
 
 export interface HospitalityCounts {
@@ -82,7 +84,11 @@ export interface HospitalityCounts {
   general: number;
 }
 
-export type RoleCounts = MeetingCounts | BanquetCounts | HospitalityCounts;
+export interface CustomCounts {
+  names: string[]; // 偉い人順の名前リスト
+}
+
+export type RoleCounts = MeetingCounts | BanquetCounts | HospitalityCounts | CustomCounts;
 
 // ============================================================
 // 役職とスコア
@@ -187,7 +193,7 @@ export interface SeatingResult {
 }
 
 export const MODE_LABEL: Record<Mode, string> = {
-  meeting: '会議', banquet: '宴会', hospitality: '接待',
+  meeting: '会議', banquet: '宴会', hospitality: '接待', custom: 'カスタム',
 };
 
 export const LAYOUT_LABEL: Record<string, string> = {
