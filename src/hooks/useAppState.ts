@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
-import { AppState, Mode, LayoutConfig, RoleCounts, VenueConfig, EventInfo, MeetingCounts, BanquetCounts, HospitalityCounts } from '../types';
-import { saveState, loadState } from '../utils/storage';
 import { AppState, Mode, LayoutConfig, RoleCounts, VenueConfig, EventInfo, MeetingCounts, BanquetCounts, HospitalityCounts, CustomCounts } from '../types';
+import { saveState, loadState } from '../utils/storage';
 
 const DEF_MEETING: MeetingCounts    = { chairperson: 1, secretary: 1, timekeeper: 1, senior: 3, general: 5 };
-const DEF_BANQUET: BanquetCounts    = { guest_of_honor: 1, senior: 2, entertainer: 1, newcomer: 2, general: 6, organizer: 1, hasFocalPoint: true　};
+const DEF_BANQUET: BanquetCounts    = { guest_of_honor: 1, senior: 2, entertainer: 1, newcomer: 2, general: 6, organizer: 1, hasFocalPoint: true };
 const DEF_HOSPITALITY: HospitalityCounts = { client: 3, senior: 2, general: 3 };
 const DEF_CUSTOM: CustomCounts = { names: ['', '', '', ''] };
 const DEFAULT: AppState = {
