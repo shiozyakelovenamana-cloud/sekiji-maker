@@ -1,7 +1,6 @@
-import React from 'react';
 import {
   AppState, Mode, LayoutConfig, VenueConfig, EventInfo, Direction,
-  MeetingCounts, BanquetCounts, HospitalityCounts,
+  MeetingCounts, BanquetCounts, HospitalityCounts, CustomCounts,
   MODE_LABEL, LAYOUT_LABEL, SCORE_WEIGHTS,
 } from '../types';
 
@@ -18,8 +17,8 @@ const lc  = "block text-xs font-semibold text-stone-400 uppercase tracking-wider
 const sc  = "bg-white rounded-2xl border border-stone-100 shadow-sm p-4 space-y-3";
 const stc = "text-sm font-bold text-stone-700 border-b border-stone-100 pb-2 mb-3 flex items-center gap-1.5";
 
-const MODE_ICON: Record<Mode, string> = { meeting: '🏢', banquet: '🍽️', hospitality: '🤝' };
-const MODE_DESC: Record<Mode, string> = { meeting: '会議・打ち合わせ', banquet: '宴会・懇親会', hospitality: '接待・おもてなし' };
+const MODE_ICON: Record<Mode, string> = { meeting: '🏢', banquet: '🍽️', hospitality: '🤝', custom: '✏️' };
+const MODE_DESC: Record<Mode, string> = { meeting: '会議・打ち合わせ', banquet: '宴会・懇親会', hospitality: '接待・おもてなし', custom: 'カスタムアレンジ' };
 
 // 数値入力
 function Num({ label, value, min = 0, max = 999, onChange }: {
@@ -159,7 +158,10 @@ export function ControlPanel({
   onGenerate, onExport, errors, hasResult,
 }: Props) {
   const { mode, layout, counts, venue, eventInfo } = state;
-  const total = Object.values(counts).reduce((s, v) => s + (v as number), 0);
+ const cc = counts as CustomCounts;
+const total = mode === 'custom'
+  ? cc.names.filter(n => n.trim()).length
+  : Object.values(counts).filter(v => typeof v === 'number').reduce((s, v) => s + (v as number), 0);
   const isSingle = ['ushaped','oshaped','counter','japanese','taxi','elevator','western'].includes(layout.type);
   const mc = counts as MeetingCounts;
   const bc = counts as BanquetCounts;
@@ -201,10 +203,8 @@ export function ControlPanel({
   }
 
   return (
-    <div className="flex flex-col gap-3 h-full overflow-y-auto pr-1 pb-2">
-
-      {/* 生成ボタン（最上部） */}
-      <div className="space-y-2 pt-1">
+{/* アクションボタン */}
+      <div className="space-y-2 pt-1 pb-4">
         <button onClick={onGenerate}
           className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
           生成
@@ -216,11 +216,15 @@ export function ControlPanel({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+      </div>
       {/* シーン選択 */}
       <div className={sc}>
         <div className={stc}>モード</div>
-        <div className="grid grid-cols-3 gap-2">
-          {(['meeting', 'banquet', 'hospitality'] as Mode[]).map(m => (
+        <div className="grid grid-cols-2 gap-2">
+          {(['meeting', 'banquet', 'hospitality', 'custom'] as Mode[]).map(m => (
             <button key={m} onClick={() => onMode(m)}
               className={`py-2.5 rounded-2xl text-xs font-semibold border transition-all flex flex-col items-center gap-1 ${
                 mode === m
@@ -277,8 +281,13 @@ export function ControlPanel({
           <Num label="盛り上げ役" value={bc.entertainer} onChange={v => onCount('entertainer', v)} />
           <Num label="初参加" value={bc.newcomer} onChange={v => onCount('newcomer', v)} />
           <Num label="一般" value={bc.general} onChange={v => onCount('general', v)} />
-          <Num label="幹事" value={bc.organizer} onChange={v => onCount('organizer', v)} />
-        </>}
+          <Num label="幹事" <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+  <input type="checkbox"
+    checked={bc.hasFocalPoint ?? true}
+    onChange={e => onCount('hasFocalPoint', e.target.checked ? 1 : 0)}
+    className="w-4 h-4 rounded accent-amber-500" />
+  正面（ステージ・スクリーン）あり
+</label>}
         {mode === 'hospitality' && <>
           <Num label="来客" value={hc.client} max={10} onChange={v => onCount('client', v)} />
           <Num label="同席上席" value={hc.senior} max={10} onChange={v => onCount('senior', v)} />
@@ -340,7 +349,6 @@ export function ControlPanel({
       <div className={sc}>
         <div className={stc}>デバッグ</div>
         {[
-          { key: 'debugShowScore' as const, label: 'スコアを表示（数値確認）' },
           { key: 'debugShowTableRank' as const, label: '卓番号を表示' },
         ].map(({ key, label }) => (
           <label key={key} className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer hover:text-stone-800 transition-colors">
