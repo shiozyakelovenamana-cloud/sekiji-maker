@@ -10,7 +10,7 @@ import { SeatingResult, MODE_LABEL, LAYOUT_LABEL } from './types';
 type Tab = 'settings' | 'result';
 
 export default function App() {
-  const { state, setMode, setLayout, setVenue, setEventInfo, setDebug, updateCount } = useAppState();
+  const { state, setMode, setLayout, setVenue, setEventInfo, setDebug, updateCount, updateNames } = useAppState();
   const [result, setResult] = useState<SeatingResult | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
@@ -41,19 +41,20 @@ export default function App() {
   }, [state]);
 
   const handleExport = useCallback(async () => {
-    if (!svgRef.current || !result) return;
-    setExporting(true);
-    try {
-      await exportToPng({
-        svgElement: svgRef.current,
-        title: state.eventInfo.title || '席次表',
-        date: state.eventInfo.date,
-        venue: state.eventInfo.venue,
-        mode: MODE_LABEL[state.mode],
-        layout: LAYOUT_LABEL[state.layout.type],
-      }, buildFilename(state.eventInfo.title, state.eventInfo.date));
-    } finally { setExporting(false); }
-  }, [result, state]);
+  if (!svgRef.current || !result) return;
+  setExporting(true);
+  try {
+    const filename = buildFilename(state.eventInfo.title, state.eventInfo.date);
+    await exportToPng({
+      svgElement: svgRef.current,
+      title: state.eventInfo.title || '席次表',
+      date: state.eventInfo.date,
+      venue: state.eventInfo.venue,
+      mode: MODE_LABEL[state.mode],
+      layout: LAYOUT_LABEL[state.layout.type],
+    }, filename);
+  } finally { setExporting(false); }
+}, [result, state]);
 
   const hasResult = !!result && result.errors.length === 0;
 
@@ -109,6 +110,7 @@ export default function App() {
             state={state} onMode={setMode} onLayout={setLayout} onCount={updateCount}
             onVenue={setVenue} onEvent={setEventInfo} onDebug={setDebug}
             onGenerate={handleGenerate} onExport={handleExport}
+            onNames={updateNames}
             errors={errors} hasResult={hasResult}
           />
         </aside>
@@ -162,7 +164,8 @@ export default function App() {
             <ControlPanel
               state={state} onMode={setMode} onLayout={setLayout} onCount={updateCount}
               onVenue={setVenue} onEvent={setEventInfo} onDebug={setDebug}
-              onGenerate={handleGenerate} onExport={handleExport}
+              onGenerate={handleGenerate} onExport={handleExport} 
+              onNames={updateNames}
               errors={errors} hasResult={hasResult}
             />
           </div>
