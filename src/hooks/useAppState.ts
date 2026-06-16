@@ -65,8 +65,10 @@ export function useAppState() {
   const setVenue     = useCallback((venue: VenueConfig)   => setState(prev => ({ ...prev, venue })), []);
   const setEventInfo = useCallback((eventInfo: EventInfo) => setState(prev => ({ ...prev, eventInfo })), []);
   const setDebug     = useCallback((key: keyof AppState, val: boolean) => setState(prev => ({ ...prev, [key]: val })), []);
-  const updateCount  = useCallback((role: string, value: number) =>
-    setState(prev => ({ ...prev, counts: { ...prev.counts, [role]: Math.max(0, value) } })), []);
+  const updateCount = useCallback((role: string, value: number | boolean) =>
+  setState(prev => ({ ...prev, counts: { ...prev.counts, [role]: typeof value === 'boolean' ? value : Math.max(0, value) } })), []);
+  const updateNames = useCallback((names: string[]) =>
+  setState(prev => ({ ...prev, counts: { ...prev.counts, names } })), []);
 
-  return { state, setMode, setLayout, setVenue, setEventInfo, setDebug, updateCount };
+return { state, setMode, setLayout, setVenue, setEventInfo, setDebug, updateCount, updateNames };
 }
