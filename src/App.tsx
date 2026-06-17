@@ -40,7 +40,8 @@ export default function App() {
     }
   }, [state]);
 
-  const handleExport = useCallback(async () => {
+const handleExport = useCallback(async () => {
+  alert('handleExport呼ばれた。svgRef:' + !!svgRef.current + ' result:' + !!result);
   if (!svgRef.current || !result) return;
   setExporting(true);
   try {
