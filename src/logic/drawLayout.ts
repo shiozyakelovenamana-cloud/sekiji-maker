@@ -122,14 +122,15 @@ function calcRound(seats: Seat[]): DrawTable {
 
 // タクシー
 function calcTaxi(seats: Seat[]): DrawTable {
-  const W = 220, H = 300, cx = W / 2;
+  const W = 260, H = 300, cx = W / 2;
   // 右ハンドル: 運転席=右前、助手席=左前
   // layoutPositions.ts の順位と一致させる:
   // taxi_1: 右後部(運転席後ろ), taxi_2: 左後部, taxi_3: 助手席(左前), taxi_4: 後部中央
+  // 後部3席（taxi_1, taxi_2, taxi_4）が横一列に並ぶため、席幅(54px)以上の間隔を確保
   const posMap: Record<string, { x: number; y: number }> = {
-    taxi_1: { x: cx + 42, y: 185 }, // 1位: 右後部（運転席後ろ）
-    taxi_2: { x: cx - 42, y: 185 }, // 2位: 左後部（助手席後ろ）
-    taxi_3: { x: cx - 42, y:  95 }, // 3位: 助手席（左前）
+    taxi_1: { x: cx + 62, y: 185 }, // 1位: 右後部（運転席後ろ）
+    taxi_2: { x: cx - 62, y: 185 }, // 2位: 左後部（助手席後ろ）
+    taxi_3: { x: cx - 62, y:  95 }, // 3位: 助手席（左前）
     taxi_4: { x: cx,      y: 185 }, // 4位: 後部中央（4名時のみ）
   };
   const drawSeats = seats.map(s => {
