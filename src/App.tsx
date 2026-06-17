@@ -221,10 +221,11 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport
   }
 
   return (
-    <div className="space-y-4">
-      <div className="bg-stone-50 rounded-2xl border border-stone-100 px-4 py-3">
-        <Legend mode={state.mode} />
-      </div>
+{state.mode !== 'custom' && (
+  <div className="bg-stone-50 rounded-2xl border border-stone-100 px-4 py-3">
+    <Legend mode={state.mode} />
+  </div>
+)}
     <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-auto p-2 md:p-4">
         <SeatingSvg
           ref={svgRef}
