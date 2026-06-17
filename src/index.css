@@ -34,3 +34,12 @@ input[type=number] {
 
 /* チェックボックスアクセント */
 input[type=checkbox] { accent-color: #f59e0b; }
+
+/* iOS Safariのdate inputが幅をはみ出す問題の対策 */
+input[type=date] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
