@@ -41,7 +41,6 @@ export default function App() {
   }, [state]);
 
 const handleExport = useCallback(async () => {
-  alert('handleExport呼ばれた。svgRef:' + !!svgRef.current + ' result:' + !!result);
   if (!svgRef.current || !result) return;
   setExporting(true);
   try {
@@ -125,7 +124,7 @@ const handleExport = useCallback(async () => {
             </div>
           )}
           <div className="flex-1 overflow-auto p-6">
-            <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={handleGenerate} generateCount={generateCount} />
+          <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={handleGenerate} generateCount={generateCount} onExport={handleExport} exporting={exporting} />
           </div>
         </main>
       </div>
@@ -175,7 +174,7 @@ const handleExport = useCallback(async () => {
         {/* 結果タブ */}
         {activeTab === 'result' && (
           <div className="flex-1 overflow-auto bg-white p-4">
-            <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={() => { handleGenerate(); }} generateCount={generateCount} />
+            <ResultArea result={result} state={state} svgRef={svgRef} onGenerate={handleGenerate} generateCount={generateCount} onExport={handleExport} exporting={exporting} />
           </div>
         )}
       </div>
@@ -186,12 +185,14 @@ const handleExport = useCallback(async () => {
 // ============================================================
 // 結果エリア（デスクトップ・スマホ共通）
 // ============================================================
-function ResultArea({ result, state, svgRef, onGenerate, generateCount }: {
+function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport, exporting }: {
   result: SeatingResult | null;
   state: any;
   svgRef: React.RefObject<SVGSVGElement>;
   onGenerate: () => void;
   generateCount: number | null;
+  onExport: () => void;
+  exporting: boolean;
 }) {
   if (!result) {
     return (
@@ -224,7 +225,7 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount }: {
       <div className="bg-stone-50 rounded-2xl border border-stone-100 px-4 py-3">
         <Legend mode={state.mode} />
       </div>
-      <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-auto p-2 md:p-4">
+    <div className="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-auto p-2 md:p-4">
         <SeatingSvg
           ref={svgRef}
           tables={result.tables}
@@ -233,6 +234,10 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount }: {
           height={500}
         />
       </div>
+      <button onClick={onExport} disabled={exporting}
+        className="w-full bg-stone-700 hover:bg-stone-800 disabled:opacity-50 text-white font-semibold py-2.5 rounded-2xl transition-colors text-sm">
+        {exporting ? '保存中...' : 'PNG で保存 📥'}
+      </button>
       {generateCount !== null && (
         <p className="text-center text-xs text-stone-400 mt-1">
           🪑 これまでに{' '}
