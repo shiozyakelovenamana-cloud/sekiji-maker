@@ -338,8 +338,10 @@ export function ControlPanel({
         </div>
         <div>
           <label className={lc}>日付</label>
-          <input type="date" className={`${ic} block w-full min-w-0`} style={{ colorScheme: 'light' }} value={eventInfo.date}
-            onChange={e => onEvent({ ...eventInfo, date: e.target.value })} />
+          <input type="date" className={`${ic} block w-full min-w-0`}
+  style={{ colorScheme: 'light', maxWidth: '100%', boxSizing: 'border-box' }}
+  value={eventInfo.date}
+  onChange={e => onEvent({ ...eventInfo, date: e.target.value })} />
         </div>
         <div>
           <label className={lc}>場所</label>
