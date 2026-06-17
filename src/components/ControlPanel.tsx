@@ -367,13 +367,12 @@ export function ControlPanel({
         </div>
       )}
 
-      {/* アクションボタン（最下部） */}
+{/* アクションボタン（最下部） */}
       <div className="space-y-2 pt-1 pb-4">
         <button onClick={onGenerate}
           className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
           生成
         </button>
-        )}
       </div>
     </div>
   );
