@@ -338,7 +338,7 @@ export function ControlPanel({
         </div>
         <div>
           <label className={lc}>日付</label>
-          <input type="date" className={ic} value={eventInfo.date}
+          <input type="date" className={`${ic} block w-full min-w-0`} style={{ colorScheme: 'light' }} value={eventInfo.date}
             onChange={e => onEvent({ ...eventInfo, date: e.target.value })} />
         </div>
         <div>
@@ -346,6 +346,14 @@ export function ControlPanel({
           <input type="text" className={ic} value={eventInfo.venue} placeholder="例：第1会議室"
             onChange={e => onEvent({ ...eventInfo, venue: e.target.value })} />
         </div>
+      </div>
+
+      {/* アクションボタン */}
+      <div className="space-y-2 pt-1">
+        <button onClick={onGenerate}
+          className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
+          生成
+        </button>
       </div>
 
       {/* デバッグ */}
@@ -366,14 +374,6 @@ export function ControlPanel({
           {errors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
         </div>
       )}
-
-{/* アクションボタン（最下部） */}
-      <div className="space-y-2 pt-1 pb-4">
-        <button onClick={onGenerate}
-          className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
-          生成
-        </button>
-      </div>
     </div>
   );
 }
