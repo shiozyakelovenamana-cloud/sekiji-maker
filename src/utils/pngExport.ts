@@ -76,27 +76,33 @@ export async function exportToPng(options: PngExportOptions, filename: string): 
 
   URL.revokeObjectURL(svgUrl);
 
-  // PNG ダウンロード
-// 変更後
-  // PNG ダウンロード（スマホ対応）
-  canvas.toBlob(async (blob) => {
-    if (!blob) return;
-    const file = new File([blob], filename, { type: 'image/png' });
-    // iOS Safari等: navigator.share で共有シートを出す
+// PNG ダウンロード（スマホ対応・確実に待つ）
+  const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) {
+    alert('画像の生成に失敗しました');
+    return;
+  }
+
+  const file = new File([blob], filename, { type: 'image/png' });
+
+  try {
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: filename });
-    } else {
-      // PC: 従来通りダウンロード
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = filename;
-      link.href = url;
-      link.click();
-      URL.revokeObjectURL(url);
+      return;
     }
-  }, 'image/png');
-}
+  } catch (err) {
+    // ユーザーがキャンセルした場合等はここに来る。フォールバックへ。
+  }
 
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = url;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 export function buildFilename(title: string, date: string): string {
   const safeName = title.replace(/[^\w\u3000-\u9fff\u30a0-\u30ff\u3040-\u309f]/g, '_') || '席次表';
