@@ -2,6 +2,9 @@ import React from 'react';
 import { Mode, ROLE_LABEL, ROLE_COLOR } from '../types';
 
 export function Legend({ mode }: { mode: Mode }) {
+  // カスタムモードは名前をそのまま表示するため凡例不要
+  if (mode === 'custom') return null;
+
   const roles = mode === 'meeting'
     ? ['chairperson', 'secretary', 'timekeeper', 'senior', 'general']
     : mode === 'banquet'
