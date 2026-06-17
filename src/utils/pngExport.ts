@@ -64,14 +64,19 @@ export async function exportToPng(options: PngExportOptions, filename: string): 
   ctx.drawImage(img, drawX, drawY, drawW, drawH);
   URL.revokeObjectURL(svgUrl);
 
-  // ダウンロードリンク方式（PC・スマホ共通）
-  const dataUrl = canvas.toDataURL('image/png');
+  // ダウンロードリンク方式（Blob URL使用）
+  const blob: Blob | null = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return;
+
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.download = filename;
-  link.href = dataUrl;
+  link.href = url;
+  link.rel = 'noopener';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function buildFilename(title: string, date: string): string {
