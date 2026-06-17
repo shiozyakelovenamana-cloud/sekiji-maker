@@ -373,11 +373,6 @@ export function ControlPanel({
           className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold py-3 rounded-2xl transition-colors shadow-sm text-base">
           生成
         </button>
-        {hasResult && (
-          <button onClick={onExport}
-            className="w-full bg-stone-700 hover:bg-stone-800 text-white font-semibold py-2.5 rounded-2xl transition-colors text-sm">
-            PNG で保存 📥
-          </button>
         )}
       </div>
     </div>
