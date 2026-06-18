@@ -12,7 +12,7 @@
 //   - 接待: 同一辺に同組織（客/接待側）をまとめる
 // ============================================================
 
-import { Role, ROLE_RANK, ROLE_LABEL, Mode, MeetingCounts, BanquetCounts, HospitalityCounts } from '../types';
+import { Role, ROLE_RANK, ROLE_LABEL, Mode, MeetingCounts, BanquetCounts, HospitalityCounts, CustomCounts } from '../types';
 import { ScoredPosition } from './scoreSeats';
 
 export interface Assignment {
@@ -112,9 +112,8 @@ export function assignMeeting(seats: ScoredPosition[], counts: MeetingCounts): A
 // 幹事 = finalScore 最低席に強制
 // ============================================================
 export function assignBanquet(
-  tableSeats: ScoredPosition[][],
+  tableSeats: ScoredPosition[][], // 卓順位順（0=最上座卓）
   counts: BanquetCounts,
-  hasFocalPoint: boolean,
 ): Assignment[][] {
   const tc = tableSeats.length;
   const placed: Map<string, { role: string; idx: number }>[] = tableSeats.map(() => new Map());
@@ -316,6 +315,97 @@ export function assignHospitality(seats: ScoredPosition[], counts: HospitalityCo
 }
 
 // ============================================================
+// カスタムモード
+// base に応じて配置ロジックを切り替える:
+//   meeting / banquet → 名前を finalScore 降順にそのまま当てはめる
+//   hospitality       → 来客名を上座（向かい合う高スコア辺 or 1辺なら最上位）、
+//                        参加者名をランク順に残り席へ
+// ============================================================
+export function assignCustom(seats: ScoredPosition[], counts: CustomCounts): Assignment[] {
+  const usable = seats.filter(s => !s.isChairperson);
+
+  if (counts.base === 'hospitality') {
+    return assignCustomHospitality(seats, usable, counts);
+  }
+
+  // meeting / banquet: 偉い人順の名前リストをスコア降順の席にそのまま当てはめる
+  const ordered = [...usable].sort(byScoreDesc);
+  const names = counts.names.filter(n => n.trim());
+  const placed = new Map<string, string>();
+  ordered.forEach((s, i) => {
+    if (i < names.length) placed.set(s.id, names[i]);
+  });
+
+  return seats.map(s => {
+    const name = placed.get(s.id);
+    if (name) return { seatId: s.id, role: 'general' as Role, roleIndex: 1, isEmpty: false, label: name };
+    return { seatId: s.id, role: null, roleIndex: 0, isEmpty: true, label: '' };
+  });
+}
+
+function assignCustomHospitality(
+  allSeats: ScoredPosition[],
+  usable: ScoredPosition[],
+  counts: CustomCounts,
+): Assignment[] {
+  const clientNames = counts.clientNames.filter(n => n.trim());
+  const participantNames = counts.participantNames.filter(n => n.trim());
+  const placed = new Map<string, string>();
+
+  // 辺ごとにグループ化して向かい合いを検出（assignHospitalityと同じロジック）
+  const sideMap = new Map<string, ScoredPosition[]>();
+  for (const s of usable) {
+    if (!sideMap.has(s.side)) sideMap.set(s.side, []);
+    sideMap.get(s.side)!.push(s);
+  }
+  const facingPairs: [string, string][] = [['top', 'bottom'], ['left', 'right']];
+  let kamiGroup: ScoredPosition[] | null = null;
+  let shimoGroup: ScoredPosition[] | null = null;
+  for (const [a, b] of facingPairs) {
+    if (sideMap.has(a) && sideMap.has(b)) {
+      const gA = sideMap.get(a)!;
+      const gB = sideMap.get(b)!;
+      const avgA = gA.reduce((s, x) => s + x.finalScore, 0) / gA.length;
+      const avgB = gB.reduce((s, x) => s + x.finalScore, 0) / gB.length;
+      [kamiGroup, shimoGroup] = avgA >= avgB ? [gA, gB] : [gB, gA];
+      break;
+    }
+  }
+
+  if (kamiGroup && shimoGroup) {
+    // 上座辺に来客、下座辺に参加者
+    const kamiSorted = [...kamiGroup].sort(byScoreDesc);
+    kamiSorted.forEach((s, i) => { if (i < clientNames.length) placed.set(s.id, clientNames[i]); });
+
+    const shimoSorted = [...shimoGroup].sort(byScoreDesc);
+    shimoSorted.forEach((s, i) => { if (i < participantNames.length) placed.set(s.id, participantNames[i]); });
+
+    // 来客が上座辺に収まらない場合は下座辺の残席へ
+    let extraIdx = clientNames.length - kamiSorted.length;
+    if (extraIdx > 0) {
+      const remainingShimo = shimoSorted.filter(s => !placed.has(s.id));
+      remainingShimo.forEach((s, i) => {
+        if (i < extraIdx) placed.set(s.id, clientNames[kamiSorted.length + i]);
+      });
+    }
+  } else {
+    // 1辺・円卓: 来客を最上位スコア席から、続けて参加者
+    const ordered = [...usable].sort(byScoreDesc);
+    const queue = [...clientNames, ...participantNames];
+    ordered.forEach((s, i) => { if (i < queue.length) placed.set(s.id, queue[i]); });
+  }
+
+  return allSeats.map(s => {
+    const name = placed.get(s.id);
+    if (name) {
+      const isClient = clientNames.includes(name);
+      return { seatId: s.id, role: (isClient ? 'client' : 'general') as Role, roleIndex: 1, isEmpty: false, label: name };
+    }
+    return { seatId: s.id, role: null, roleIndex: 0, isEmpty: true, label: '' };
+  });
+}
+
+// ============================================================
 // バリデーション
 // ============================================================
 export function validateCounts(mode: Mode, counts: Record<string, number>, totalSeats: number): string[] {
@@ -328,21 +418,14 @@ export function validateCounts(mode: Mode, counts: Record<string, number>, total
   return errors;
 }
 
-// ============================================================
-// カスタムモード
-// 偉い人順（names[0]が最上座）にfinalScore降順の席へ割り当て
-// ============================================================
-export function assignCustom(seats: ScoredPosition[], names: string[]): Assignment[] {
-  const ordered = [...seats]
-    .filter(s => !s.isChairperson)
-    .sort((a, b) => b.finalScore - a.finalScore);
+// カスタムモード専用バリデーション（namesは文字列配列なのでvalidateCountsとは別関数）
+export function validateCustom(counts: CustomCounts, totalSeats: number): string[] {
+  const errors: string[] = [];
+  const total = counts.base === 'hospitality'
+    ? counts.clientNames.filter(n => n.trim()).length + counts.participantNames.filter(n => n.trim()).length
+    : counts.names.filter(n => n.trim()).length;
 
-  return seats.map(s => {
-    const rank = ordered.findIndex(o => o.id === s.id);
-    const name = rank >= 0 && rank < names.length ? names[rank] : null;
-    if (name) {
-      return { seatId: s.id, role: 'general' as Role, roleIndex: rank + 1, isEmpty: false, label: name };
-    }
-    return { seatId: s.id, role: null, roleIndex: 0, isEmpty: true, label: '' };
-  });
+  if (total === 0) { errors.push('参加者名を入力してください。'); return errors; }
+  if (total > totalSeats) errors.push(`参加人数 ${total}名 が総席数 ${totalSeats}席 を超えています。`);
+  return errors;
 }
