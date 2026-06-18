@@ -87,13 +87,21 @@ function FaqItem({ q, a }: { q: string; a: React.ReactNode }) {
   );
 }
 
+export function FaqContent() {
+  return (
+    <>
+      {FAQ_ITEMS.map((item, i) => (
+        <FaqItem key={i} q={item.q} a={item.a} />
+      ))}
+    </>
+  );
+}
+
 export function Faq() {
   return (
     <div className="bg-white rounded-2xl border border-stone-100 shadow-sm px-4 py-2 mt-4">
       <div className="text-sm font-bold text-stone-700 pt-2 pb-1">よくある質問</div>
-      {FAQ_ITEMS.map((item, i) => (
-        <FaqItem key={i} q={item.q} a={item.a} />
-      ))}
+      <FaqContent />
     </div>
   );
 }
