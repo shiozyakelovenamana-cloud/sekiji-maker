@@ -10,6 +10,8 @@ interface Props {
   onCount: (role: string, v: number | boolean) => void; onVenue: (v: VenueConfig) => void;
   onEvent: (e: EventInfo) => void; onDebug: (key: keyof AppState, v: boolean) => void;
   onGenerate: () => void; onExport: () => void; onNames: (names: string[]) => void;
+  onClientNames: (names: string[]) => void; onParticipantNames: (names: string[]) => void;
+  onCustomBase: (base: CustomCounts['base']) => void;
   errors: string[]; hasResult: boolean;
 }
 
@@ -22,6 +24,10 @@ const MODE_ICON: Record<Mode, string> = { meeting: '🏢', banquet: '🍽️', h
 const MODE_DESC: Record<Mode, string> = {
   meeting: '会議・打ち合わせ', banquet: '宴会・懇親会',
   hospitality: '接待・おもてなし', custom: '名前で席を決める',
+};
+const MODE_NOTE: Record<Mode, string | null> = {
+  meeting: '他社の方が参加し、向かい合う形式にしたい場合は接待モードやカスタムモードもご検討ください',
+  banquet: null, hospitality: null, custom: null,
 };
 
 function Num({ label, value, min = 0, max = 999, onChange }: {
@@ -156,7 +162,8 @@ function LayoutConfigEditor({ state, onChange }: { state: AppState; onChange: (l
 
 export function ControlPanel({
   state, onMode, onLayout, onCount, onVenue, onEvent, onDebug,
-  onGenerate, onExport, onNames, errors, hasResult,
+  onGenerate, onExport, onNames, onClientNames, onParticipantNames, onCustomBase,
+  errors, hasResult,
 }: Props) {
   const { mode, layout, counts, venue, eventInfo } = state;
   const cc = counts as CustomCounts;
@@ -165,7 +172,9 @@ export function ControlPanel({
   const hc = counts as HospitalityCounts;
 
   const total = mode === 'custom'
-    ? cc.names.filter(n => n.trim()).length
+    ? (cc.base === 'hospitality'
+        ? cc.clientNames.filter(n => n.trim()).length + cc.participantNames.filter(n => n.trim()).length
+        : cc.names.filter(n => n.trim()).length)
     : Object.values(counts).filter(v => typeof v === 'number').reduce((s, v) => s + (v as number), 0);
 
   const isSingle = ['ushaped','oshaped','counter','japanese','taxi','elevator','western'].includes(layout.type);
@@ -228,6 +237,9 @@ export function ControlPanel({
           ))}
         </div>
         <p className="text-xs text-stone-400 text-center">{MODE_DESC[mode]}</p>
+        {MODE_NOTE[mode] && (
+          <p className="text-xs text-stone-400 text-center mt-1 leading-relaxed">{MODE_NOTE[mode]}</p>
+        )}
       </div>
 
       {/* 参加人数 */}
@@ -272,15 +284,71 @@ export function ControlPanel({
         </>}
 
         {mode === 'custom' && (
-          <div className="space-y-2">
-            <p className="text-xs text-stone-500">偉い人順に名前を入力してください（1人1行）</p>
-            <textarea
-              className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-stone-700 resize-none"
-              rows={6}
-              placeholder={"例：\n丸本社長\n田中部長\n取引先担当者"}
-              value={cc.names.join('\n')}
-              onChange={e => onNames(e.target.value.split('\n'))}
-            />
+          <div className="space-y-3">
+            <div>
+              <label className={lc}>ベースとなる配置ルール</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { key: 'meeting', label: '会議型' },
+                  { key: 'banquet', label: '宴会型' },
+                  { key: 'hospitality', label: '接待型' },
+                ] as const).map(({ key, label }) => (
+                  <button key={key} onClick={() => onCustomBase(key)}
+                    className={`py-1.5 text-xs rounded-xl border font-medium transition-all ${
+                      cc.base === key
+                        ? 'bg-amber-500 text-white border-amber-500'
+                        : 'bg-white text-stone-600 border-stone-200 hover:border-amber-300'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {cc.base === 'banquet' && (
+              <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer">
+                <input type="checkbox"
+                  checked={cc.hasFocalPoint ?? true}
+                  onChange={e => onCount('hasFocalPoint', e.target.checked)}
+                  className="w-4 h-4 rounded accent-amber-500" />
+                正面（ステージ・スクリーン）あり
+              </label>
+            )}
+
+            {cc.base === 'hospitality' ? (
+              <>
+                <div>
+                  <label className={lc}>来客枠（上座優先）</label>
+                  <textarea
+                    className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-stone-700 resize-none"
+                    rows={3}
+                    placeholder={"例：\n田中部長（取引先）"}
+                    value={cc.clientNames.join('\n')}
+                    onChange={e => onClientNames(e.target.value.split('\n'))}
+                  />
+                </div>
+                <div>
+                  <label className={lc}>参加者枠（偉い人順）</label>
+                  <textarea
+                    className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-stone-700 resize-none"
+                    rows={4}
+                    placeholder={"例：\n丸本社長\n佐藤課長"}
+                    value={cc.participantNames.join('\n')}
+                    onChange={e => onParticipantNames(e.target.value.split('\n'))}
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className={lc}>偉い人順に名前を入力（1人1行）</label>
+                <textarea
+                  className="w-full border border-stone-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white text-stone-700 resize-none"
+                  rows={6}
+                  placeholder={"例：\n丸本社長\n田中部長\n取引先担当者"}
+                  value={cc.names.join('\n')}
+                  onChange={e => onNames(e.target.value.split('\n'))}
+                />
+              </div>
+            )}
             <p className="text-xs text-stone-400">{total}名入力中</p>
           </div>
         )}
@@ -339,9 +407,9 @@ export function ControlPanel({
         <div>
           <label className={lc}>日付</label>
           <input type="date" className={`${ic} block w-full min-w-0`}
-  style={{ colorScheme: 'light', maxWidth: '100%', boxSizing: 'border-box' }}
-  value={eventInfo.date}
-  onChange={e => onEvent({ ...eventInfo, date: e.target.value })} />
+            style={{ colorScheme: 'light', maxWidth: '100%', boxSizing: 'border-box' }}
+            value={eventInfo.date}
+            onChange={e => onEvent({ ...eventInfo, date: e.target.value })} />
         </div>
         <div>
           <label className={lc}>場所</label>
