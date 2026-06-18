@@ -1,4 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppState } from './hooks/useAppState';
 import { generateSeating } from './logic/seatingEngine';
 import { ControlPanel } from './components/ControlPanel';
@@ -12,12 +13,13 @@ type Tab = 'settings' | 'result';
 
 const GUIDE_STEPS = [
   { emoji: '①', title: 'まずはモードを選択', body: '会議・宴会・接待・カスタムの中から、今回のシーンに近いモードを選びます。' },
-  { emoji: '②', title: '参加人数を入力', body: '役職ごとの人数（カスタムなら名前を一行ずつ）入力します。' },
-  { emoji: '③', title: 'レイアウトと会場設定', body: '部屋の形、卓/辺あたりの着席数、出入口・正面の向き（宴会モードの場合＋正面有無）を設定します。' },
-  { emoji: '④', title: 'あとは「生成」を押すだけ', body: '生成ボタンを押すと席次表が出来上がります。PNG保存も可能です。' },
+  { emoji: '②', title: '参加人数を入力', body: '役職ごとの人数（カスタムなら名前）を入力します。' },
+  { emoji: '③', title: 'レイアウトと会場設定', body: '部屋の形と、出入口・正面の向きを設定します。' },
+  { emoji: '④', title: '「生成」を押すだけ', body: 'あとはボタンを押すだけで席次表が出来上がります。PNG保存も可能です。' },
 ];
 
 export default function App() {
+  const navigate = useNavigate();
   const {
     state, setMode, setLayout, setVenue, setEventInfo, setDebug, updateCount,
     updateNames, updateClientNames, updateParticipantNames, updateCustomBase,
@@ -87,7 +89,7 @@ export default function App() {
             </div>
             <div className="bg-amber-50 rounded-2xl p-4 text-sm text-stone-600 leading-relaxed">
               <p>このアプリは一般的なマナーをもとにした<strong>参考情報</strong>をお届けします📖</p>
-              <p className="mt-2 text-stone-500 text-xs">業界・会社・地域によってルールはいろいろですので、迷ったら先輩や主催者に確認するのが◎ですよ😊</p>
+              <p className="mt-2 text-stone-500 text-xs">業界・会社・地域によってルールはいろいろ。迷ったら先輩や主催者に確認するのが◎ですよ😸</p>
             </div>
             <button
               onClick={() => {
@@ -282,6 +284,7 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport
             生成
           </button>
         </div>
+        <AppFooter />
       </div>
     );
   }
@@ -304,6 +307,7 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport
             </button>
           </div>
         </div>
+        <AppFooter />
       </div>
     );
   }
@@ -337,6 +341,26 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport
           回、席次が作られました
         </p>
       )}
+      <AppFooter />
+    </div>
+  );
+}
+
+function AppFooter() {
+  const navigate = useNavigate();
+  return (
+    <div className="border-t border-stone-100 pt-4 pb-2">
+      <div className="flex items-center justify-center gap-4 flex-wrap">
+        <button onClick={() => navigate('/privacy')}
+          className="text-xs text-stone-400 hover:text-stone-600 underline transition-colors">
+          プライバシーポリシー
+        </button>
+        <button onClick={() => navigate('/terms')}
+          className="text-xs text-stone-400 hover:text-stone-600 underline transition-colors">
+          利用規約
+        </button>
+      </div>
+      <p className="text-xs text-stone-300 text-center mt-2">© 2026 席次メーカー</p>
     </div>
   );
 }
