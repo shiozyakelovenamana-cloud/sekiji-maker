@@ -11,10 +11,10 @@ export type Direction = 'top' | 'bottom' | 'left' | 'right';
 
 // モード別スコア重み
 export const SCORE_WEIGHTS: Record<Mode, { door: number; front: number }> = {
-  meeting:     { door: 0.6, front: 0.4 },
-  banquet:     { door: 0.5, front: 0.5 },
-  hospitality: { door: 0.3, front: 0.7 },
-  custom:      { door: 0.6, front: 0.4 },
+  meeting:     { door: 0.6, front: 0.4 }, // ビジネス重視
+  banquet:     { door: 0.5, front: 0.5 }, // バランス
+  hospitality: { door: 0.3, front: 0.7 }, // フォーマル重視
+  custom:      { door: 0.5, front: 0.5 }, // ベースタイプにより上書きされる
 };
 
 // ============================================================
@@ -75,7 +75,7 @@ export interface BanquetCounts {
   newcomer: number;
   general: number;
   organizer: number;
-  hasFocalPoint: boolean; // ①正面（ステージ）有無
+  hasFocalPoint: boolean; // 正面（ステージ・スクリーン）有無
 }
 
 export interface HospitalityCounts {
@@ -84,8 +84,15 @@ export interface HospitalityCounts {
   general: number;
 }
 
+// カスタムモードのベースロジック種別
+export type CustomBase = 'meeting' | 'banquet' | 'hospitality';
+
 export interface CustomCounts {
-  names: string[]; // 偉い人順の名前リスト
+  base: CustomBase;          // どの配置ロジックを使うか
+  hasFocalPoint: boolean;    // base='banquet'のときのみ有効
+  names: string[];           // 偉い人順の名前リスト（base='meeting'|'banquet'用）
+  clientNames: string[];     // 来客名リスト（base='hospitality'用）
+  participantNames: string[]; // 参加者名リスト（base='hospitality'用、ランク順）
 }
 
 export type RoleCounts = MeetingCounts | BanquetCounts | HospitalityCounts | CustomCounts;
