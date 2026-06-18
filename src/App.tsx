@@ -4,7 +4,7 @@ import { generateSeating } from './logic/seatingEngine';
 import { ControlPanel } from './components/ControlPanel';
 import { SeatingSvg } from './components/SeatingSvg';
 import { Legend } from './components/Legend';
-import { Faq } from './components/Faq';
+import { FaqContent } from './components/Faq';
 import { exportToPng, buildFilename } from './utils/pngExport';
 import { SeatingResult, MODE_LABEL, LAYOUT_LABEL } from './types';
 
@@ -28,6 +28,8 @@ export default function App() {
   });
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
+  const [showFaq, setShowFaq] = useState(false);
+  const [showContact, setShowContact] = useState(false);
   const [generateCount, setGenerateCount] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -82,7 +84,7 @@ export default function App() {
             </div>
             <div className="bg-amber-50 rounded-2xl p-4 text-sm text-stone-600 leading-relaxed">
               <p>このアプリは一般的なマナーをもとにした<strong>参考情報</strong>をお届けします📖</p>
-              <p className="mt-2 text-stone-500 text-xs">業界・会社・地域によってルールはいろいろ。迷ったら先輩や主催者に確認するのが◎です😊</p>
+              <p className="mt-2 text-stone-500 text-xs">業界・会社・地域によってルールはいろいろ。迷ったら先輩や主催者に確認するのが◎ですよ^^</p>
             </div>
             <button
               onClick={() => {
@@ -130,23 +132,63 @@ export default function App() {
       )}
 
       <header className="bg-white border-b border-stone-200 px-4 py-3 flex items-center justify-between shadow-sm flex-shrink-0">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
             <span className="text-xl">🪑</span>
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-base font-bold text-stone-800 leading-none tracking-tight">席次メーカー</h1>
             <p className="text-xs text-stone-400 mt-0.5">席順の悩みをすばやく解決</p>
           </div>
+          <button onClick={() => setShowFaq(true)}
+            className="ml-1 text-xs font-semibold text-stone-500 bg-stone-100 hover:bg-stone-200 px-2.5 py-1.5 rounded-full transition-colors flex-shrink-0">
+            Q&A
+          </button>
+          <button onClick={() => setShowContact(true)}
+            className="text-xs font-semibold text-stone-500 bg-stone-100 hover:bg-stone-200 px-2.5 py-1.5 rounded-full transition-colors flex-shrink-0">
+            お問い合わせ
+          </button>
         </div>
         {hasResult && (
-          <div className="flex items-center gap-2 text-xs text-stone-500 bg-stone-50 px-2.5 py-1.5 rounded-full border border-stone-200">
+          <div className="hidden sm:flex items-center gap-2 text-xs text-stone-500 bg-stone-50 px-2.5 py-1.5 rounded-full border border-stone-200 flex-shrink-0">
             <span>🪑{result!.totalSeats}</span>
             <span className="text-stone-300">|</span>
             <span>👥{result!.totalPeople}</span>
           </div>
         )}
       </header>
+
+      {/* Q&A モーダル */}
+      {showFaq && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowFaq(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-stone-800">よくある質問</h2>
+              <button onClick={() => setShowFaq(false)} className="text-stone-400 hover:text-stone-600 text-xl px-2">×</button>
+            </div>
+            <FaqContent />
+          </div>
+        </div>
+      )}
+
+      {/* お問い合わせ モーダル */}
+      {showContact && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowContact(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-7 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-stone-800">お問い合わせ</h2>
+              <button onClick={() => setShowContact(false)} className="text-stone-400 hover:text-stone-600 text-xl px-2">×</button>
+            </div>
+            <p className="text-sm text-stone-600 leading-relaxed">
+              不具合の報告やご意見・ご要望など、お気軽にご連絡ください。
+            </p>
+            <a href="mailto:bonitotsukudani@gmail.com"
+              className="block w-full text-center bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-2xl transition-colors text-sm">
+              bonitotsukudani@gmail.com
+            </a>
+          </div>
+        </div>
+      )}
 
       <div className="hidden md:flex flex-1 overflow-hidden">
         <aside className="w-72 flex-shrink-0 bg-stone-50 border-r border-stone-200 overflow-y-auto p-3">
@@ -235,7 +277,6 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport
             生成
           </button>
         </div>
-        <Faq />
       </div>
     );
   }
@@ -258,7 +299,6 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport
             </button>
           </div>
         </div>
-        <Faq />
       </div>
     );
   }
@@ -292,7 +332,6 @@ function ResultArea({ result, state, svgRef, onGenerate, generateCount, onExport
           回、席次が作られました
         </p>
       )}
-      <Faq />
     </div>
   );
 }
