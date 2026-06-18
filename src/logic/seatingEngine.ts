@@ -1,13 +1,3 @@
-// ============================================================
-// 席次生成エンジン v5.0
-//
-// フロー:
-//   1. layoutPositions で (lx, ly) 生成
-//   2. scoreSeats で doorScore/frontScore/finalScore 計算
-//   3. assignRoles でスコア順マッチング
-//   4. TableData に合成
-// ============================================================
-
 import {
   AppState, SeatingResult, TableData, Seat, Mode,
   MeetingCounts, BanquetCounts, HospitalityCounts, CustomCounts,
@@ -23,10 +13,16 @@ import { calcScores, ScoredPosition } from './scoreSeats';
 
 import {
   assignMeeting, assignBanquet, assignHospitality, assignCustom,
-  validateCounts, Assignment,
+  validateCounts, validateCustom, Assignment,
 } from './assignRoles';
 
 import { calcTableRanks } from './rankSeats';
+
+function countCustomTotal(cc: CustomCounts): number {
+  return cc.base === 'hospitality'
+    ? cc.clientNames.filter(n => n.trim()).length + cc.participantNames.filter(n => n.trim()).length
+    : cc.names.filter(n => n.trim()).length;
+}
 
 export function generateSeating(state: AppState): SeatingResult {
   const { mode, layout, counts, venue } = state;
@@ -49,10 +45,14 @@ export function generateSeating(state: AppState): SeatingResult {
 
   const totalSeats = tableRawSeats.reduce((s, t) => s + t.length, 0);
   const totalPeople = mode === 'custom'
-    ? (counts as CustomCounts).names.filter(n => n.trim()).length
+    ? countCustomTotal(counts as CustomCounts)
     : Object.values(counts).filter(v => typeof v === 'number').reduce((s, v) => s + (v as number), 0);
 
-  const errors = validateCounts(mode, counts as unknown as Record<string, number>, totalSeats);
+  // バリデーション（カスタムモードは専用関数、それ以外は共通関数）
+  const errors = mode === 'custom'
+    ? validateCustom(counts as CustomCounts, totalSeats)
+    : validateCounts(mode, counts as unknown as Record<string, number>, totalSeats);
+
   if (errors.length > 0) {
     const tables = tableRawSeats.map((raw, ti) => {
       const scored = calcScores(raw, door, front, mode);
@@ -61,22 +61,30 @@ export function generateSeating(state: AppState): SeatingResult {
     return { tables, totalSeats, totalPeople, errors };
   }
 
+  // ── スコア重み計算 ──────────────────────────────────────────
   const isJapanese = layout.type === 'japanese';
   const isCounter  = layout.type === 'counter';
   const isTaxiElev = layout.type === 'taxi' || layout.type === 'elevator';
 
-  const bc = counts as BanquetCounts;
-  const hasFocalPoint = mode === 'banquet' ? (bc.hasFocalPoint ?? true) : true;
+  const cc = counts as CustomCounts;
+  // 正面有無の判定: 宴会モード、またはカスタムモードのbase='banquet'のときに有効
+  const hasFocalPoint =
+    mode === 'banquet' ? ((counts as BanquetCounts).hasFocalPoint ?? true) :
+    mode === 'custom' && cc.base === 'banquet' ? (cc.hasFocalPoint ?? true) :
+    true;
+
+  // カスタムモードのベースロジックに応じて実効モード（スコア重み用）を決定
+  const effectiveModeForScore: Mode = mode === 'custom' ? cc.base : mode;
 
   const scoreWeights =
     isJapanese || isCounter ? { door: 0.05, front: 0.95 } :
-    mode === 'banquet' && !hasFocalPoint ? { door: 1.0, front: 0.0 } :
+    (effectiveModeForScore === 'banquet' && !hasFocalPoint) ? { door: 1.0, front: 0.0 } :
     undefined;
 
   const effectiveFront: Direction = isCounter ? 'top' : front;
 
   const tableScored: ScoredPosition[][] = tableRawSeats.map(raw => {
-    const scored = calcScores(raw, door, effectiveFront, mode, scoreWeights);
+    const scored = calcScores(raw, door, effectiveFront, effectiveModeForScore, scoreWeights);
     if (isTaxiElev) {
       return scored.map(s => {
         const baseId = s.id.replace(/^t\d+_/, '');
@@ -88,9 +96,12 @@ export function generateSeating(state: AppState): SeatingResult {
     return scored;
   });
 
+  // ── 役職配置 ──────────────────────────────────────────────
   let assignedPerTable: Assignment[][];
 
-  if (mode === 'meeting') {
+  if (mode === 'custom') {
+    assignedPerTable = [assignCustom(tableScored[0], cc)];
+  } else if (mode === 'meeting') {
     const mc = counts as MeetingCounts;
     if (tableCount === 1) {
       assignedPerTable = [assignMeeting(tableScored[0], mc)];
@@ -110,14 +121,11 @@ export function generateSeating(state: AppState): SeatingResult {
   } else if (mode === 'banquet') {
     const sorted = [...tableScored.entries()]
       .sort(([ai], [bi]) => (rankMap.get(ai) ?? ai) - (rankMap.get(bi) ?? bi));
-    const assigned = assignBanquet(sorted.map(([, s]) => s), counts as BanquetCounts, hasFocalPoint);
+    const assigned = assignBanquet(sorted.map(([, s]) => s), counts as BanquetCounts);
     assignedPerTable = new Array(tableCount);
     sorted.forEach(([origIdx], si) => { assignedPerTable[origIdx] = assigned[si]; });
-  } else if (mode === 'custom') {
-    const cc = counts as CustomCounts;
-    const customSeats = tableScored[0].filter(s => !s.isChairperson);
-    assignedPerTable = [assignCustom(customSeats, cc.names)];
   } else {
+    // 接待モード
     const hospSeats = tableScored[0].filter(s => !s.isChairperson);
     assignedPerTable = [assignHospitality(hospSeats, counts as HospitalityCounts)];
   }
