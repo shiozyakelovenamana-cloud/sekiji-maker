@@ -87,7 +87,7 @@ export default function App() {
             </div>
             <div className="bg-amber-50 rounded-2xl p-4 text-sm text-stone-600 leading-relaxed">
               <p>このアプリは一般的なマナーをもとにした<strong>参考情報</strong>をお届けします📖</p>
-              <p className="mt-2 text-stone-500 text-xs">業界・会社・地域によってルールはいろいろ。迷ったら先輩や主催者に確認するのが◎ですよ😊</p>
+              <p className="mt-2 text-stone-500 text-xs">業界・会社・地域によってルールはいろいろですので、迷ったら先輩や主催者に確認するのが◎ですよ😊</p>
             </div>
             <button
               onClick={() => {
